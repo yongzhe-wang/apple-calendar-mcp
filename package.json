@@ -1,0 +1,67 @@
+{
+  "name": "apple-calendar-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for macOS Calendar (EventKit via AppleScript) — list, search, create, update, delete events from Claude Code.",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "claude-code",
+    "calendar",
+    "macos",
+    "eventkit",
+    "applescript"
+  ],
+  "license": "MIT",
+  "author": "Yongzhe Wang",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yongzhe-wang/apple-calendar-mcp"
+  },
+  "bugs": {
+    "url": "https://github.com/yongzhe-wang/apple-calendar-mcp/issues"
+  },
+  "homepage": "https://github.com/yongzhe-wang/apple-calendar-mcp#readme",
+  "type": "module",
+  "bin": {
+    "apple-calendar-mcp": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "os": [
+    "darwin"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check src test",
+    "lint:fix": "biome check --write src test",
+    "format": "biome format --write src test",
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.12",
+    "@types/node": "^22.10.0",
+    "tsup": "^8.5.1",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.5"
+  }
+}

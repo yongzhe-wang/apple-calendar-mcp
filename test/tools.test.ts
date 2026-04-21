@@ -1,0 +1,205 @@
+import { describe, expect, it } from "vitest";
+import { buildCreateEventScript } from "../src/tools/create-event.js";
+import { buildDeleteEventScript } from "../src/tools/delete-event.js";
+import { buildListEventsScript, parseEventsOutput } from "../src/tools/list-events.js";
+import { matchesQuery } from "../src/tools/search-events.js";
+import { buildUpdateEventScript } from "../src/tools/update-event.js";
+import {
+  CreateEventInput,
+  DeleteEventInput,
+  ListEventsInput,
+  SearchEventsInput,
+  UpdateEventInput,
+} from "../src/types.js";
+
+describe("input schemas", () => {
+  it("list_events requires ISO dates", () => {
+    expect(() => ListEventsInput.parse({ start_date: "nope", end_date: "2026-01-01" })).toThrow();
+  });
+
+  it("list_events defaults limit to 100", () => {
+    const out = ListEventsInput.parse({
+      start_date: "2026-01-01",
+      end_date: "2026-02-01",
+    });
+    expect(out.limit).toBe(100);
+  });
+
+  it("list_events caps limit at 500", () => {
+    expect(() =>
+      ListEventsInput.parse({
+        start_date: "2026-01-01",
+        end_date: "2026-02-01",
+        limit: 9999,
+      }),
+    ).toThrow();
+  });
+
+  it("search_events requires non-empty query", () => {
+    expect(() => SearchEventsInput.parse({ query: "" })).toThrow();
+  });
+
+  it("search_events defaults limit to 50", () => {
+    const out = SearchEventsInput.parse({ query: "standup" });
+    expect(out.limit).toBe(50);
+  });
+
+  it("create_event requires title and dates", () => {
+    expect(() => CreateEventInput.parse({ title: "" })).toThrow();
+    expect(() =>
+      CreateEventInput.parse({
+        title: "Meeting",
+        start_date: "2026-04-21T10:00:00Z",
+        end_date: "2026-04-21T11:00:00Z",
+      }),
+    ).not.toThrow();
+  });
+
+  it("update_event requires event_id", () => {
+    expect(() => UpdateEventInput.parse({})).toThrow();
+  });
+
+  it("delete_event requires event_id", () => {
+    expect(() => DeleteEventInput.parse({})).toThrow();
+    expect(() => DeleteEventInput.parse({ event_id: "" })).toThrow();
+  });
+});
+
+describe("buildListEventsScript", () => {
+  it("emits an AppleScript with the expected shape", () => {
+    const script = buildListEventsScript({
+      start_date: "2026-04-01T00:00:00Z",
+      end_date: "2026-04-30T23:59:59Z",
+      limit: 50,
+    });
+    expect(script).toContain('tell application "Calendar"');
+    expect(script).toContain("every event of cal");
+    expect(script).toContain("set maxItems to 50");
+  });
+
+  it("injects calendar_name safely", () => {
+    const script = buildListEventsScript({
+      start_date: "2026-04-01T00:00:00Z",
+      end_date: "2026-04-30T23:59:59Z",
+      limit: 10,
+      calendar_name: 'Evil"; do shell script "rm',
+    });
+    // The malicious quote must be escaped.
+    expect(script).toContain('\\"');
+    expect(script).not.toMatch(/is not equal to "Evil"; do shell/);
+  });
+});
+
+describe("buildCreateEventScript", () => {
+  it("includes all properties", () => {
+    const script = buildCreateEventScript({
+      title: "Meeting",
+      start_date: "2026-04-21T10:00:00Z",
+      end_date: "2026-04-21T11:00:00Z",
+      calendar_name: "Work",
+      location: "Room 3",
+      notes: "Bring laptop",
+      url: "https://example.com",
+      all_day: false,
+    });
+    expect(script).toContain('"Meeting"');
+    expect(script).toContain('"Work"');
+    expect(script).toContain('"Room 3"');
+    expect(script).toContain('"Bring laptop"');
+    expect(script).toContain('"https://example.com"');
+    expect(script).toContain("allday event:false");
+  });
+});
+
+describe("buildUpdateEventScript", () => {
+  it("only includes setters for provided fields", () => {
+    const script = buildUpdateEventScript({
+      event_id: "abc-123",
+      title: "Renamed",
+    });
+    expect(script).toContain("set summary of ev to");
+    expect(script).not.toContain("set location of ev to");
+    expect(script).not.toContain("set description of ev to");
+  });
+
+  it("escapes event_id", () => {
+    const script = buildUpdateEventScript({
+      event_id: 'x"; do shell script "ls',
+      title: "ok",
+    });
+    expect(script).toContain('\\"');
+  });
+});
+
+describe("buildDeleteEventScript", () => {
+  it("escapes event_id", () => {
+    const script = buildDeleteEventScript({ event_id: 'a"b' });
+    expect(script).toContain('\\"');
+  });
+});
+
+describe("parseEventsOutput", () => {
+  it("returns [] for empty input", () => {
+    expect(parseEventsOutput("")).toEqual([]);
+  });
+
+  it("parses a single event with all fields", () => {
+    const RS = "\x1e";
+    const US = "\x1f";
+    const secs = Math.floor(Date.UTC(2026, 3, 21, 10, 0, 0) / 1000);
+    const endSecs = secs + 3600;
+    const raw =
+      [
+        "uid-1",
+        "Meeting",
+        String(secs),
+        String(endSecs),
+        "false",
+        "Room 3",
+        "Bring laptop",
+        "Work",
+        "https://example.com",
+      ].join(US) + RS;
+
+    const events = parseEventsOutput(raw);
+    expect(events).toHaveLength(1);
+    const e = events[0];
+    expect(e).toBeDefined();
+    if (!e) return;
+    expect(e.id).toBe("uid-1");
+    expect(e.title).toBe("Meeting");
+    expect(e.all_day).toBe(false);
+    expect(e.location).toBe("Room 3");
+    expect(e.url).toBe("https://example.com");
+    expect(e.calendar_name).toBe("Work");
+    expect(new Date(e.start).getTime()).toBe(secs * 1000);
+  });
+});
+
+describe("matchesQuery", () => {
+  const base = {
+    id: "1",
+    title: "Team Standup",
+    start: "",
+    end: "",
+    all_day: false,
+    calendar_name: "Work",
+  };
+
+  it("matches case-insensitively on title", () => {
+    expect(matchesQuery(base, "standup")).toBe(true);
+    expect(matchesQuery(base, "STANDUP")).toBe(true);
+  });
+
+  it("matches on location", () => {
+    expect(matchesQuery({ ...base, location: "Zoom Room A" }, "zoom")).toBe(true);
+  });
+
+  it("matches on notes", () => {
+    expect(matchesQuery({ ...base, notes: "Discuss roadmap" }, "roadmap")).toBe(true);
+  });
+
+  it("returns false when no field matches", () => {
+    expect(matchesQuery(base, "missing")).toBe(false);
+  });
+});

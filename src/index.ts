@@ -1,0 +1,162 @@
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
+import { formatUserFacingError } from "./errors.js";
+import { createEvent } from "./tools/create-event.js";
+import { deleteEvent } from "./tools/delete-event.js";
+import { listCalendars } from "./tools/list-calendars.js";
+import { listEvents } from "./tools/list-events.js";
+import { searchEvents } from "./tools/search-events.js";
+import { updateEvent } from "./tools/update-event.js";
+import {
+  CreateEventInput,
+  DeleteEventInput,
+  ListEventsInput,
+  SearchEventsInput,
+  UpdateEventInput,
+} from "./types.js";
+
+type ToolContent = { type: "text"; text: string };
+
+function ok(data: unknown): { content: ToolContent[] } {
+  return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+}
+
+function fail(err: unknown): { content: ToolContent[]; isError: true } {
+  // Stderr only — stdout is the MCP transport channel.
+  process.stderr.write(`[apple-calendar-mcp] ${String(err)}\n`);
+  return {
+    content: [{ type: "text", text: formatUserFacingError(err) }],
+    isError: true,
+  };
+}
+
+async function main(): Promise<void> {
+  const server = new McpServer(
+    {
+      name: "apple-calendar-mcp",
+      version: "0.1.0",
+    },
+    {
+      capabilities: { tools: {} },
+    },
+  );
+
+  server.registerTool(
+    "list_calendars",
+    {
+      title: "List calendars",
+      description:
+        "List all calendars available in macOS Calendar.app, including whether each is writable.",
+      inputSchema: {},
+    },
+    async () => {
+      try {
+        return ok(await listCalendars());
+      } catch (err) {
+        return fail(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "list_events",
+    {
+      title: "List events",
+      description:
+        "List events in Calendar.app between start_date and end_date (ISO 8601). Optionally filter by calendar.",
+      inputSchema: ListEventsInput.shape,
+    },
+    async (args) => {
+      try {
+        const parsed = ListEventsInput.parse(args);
+        return ok(await listEvents(parsed));
+      } catch (err) {
+        return fail(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "search_events",
+    {
+      title: "Search events",
+      description:
+        "Search events by substring match against title, location, and notes (case-insensitive). Defaults to 30 days ago through 90 days from now.",
+      inputSchema: SearchEventsInput.shape,
+    },
+    async (args) => {
+      try {
+        const parsed = SearchEventsInput.parse(args);
+        return ok(await searchEvents(parsed));
+      } catch (err) {
+        return fail(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "create_event",
+    {
+      title: "Create event",
+      description:
+        "Create a new calendar event. calendar_name defaults to the first writable calendar.",
+      inputSchema: CreateEventInput.shape,
+    },
+    async (args) => {
+      try {
+        const parsed = CreateEventInput.parse(args);
+        return ok(await createEvent(parsed));
+      } catch (err) {
+        return fail(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "update_event",
+    {
+      title: "Update event",
+      description:
+        "Update fields of an existing event identified by event_id (its uid). Only provided fields are changed.",
+      inputSchema: UpdateEventInput.shape,
+    },
+    async (args) => {
+      try {
+        const parsed = UpdateEventInput.parse(args);
+        return ok(await updateEvent(parsed));
+      } catch (err) {
+        return fail(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "delete_event",
+    {
+      title: "Delete event",
+      description: "Delete an event by its event_id (uid).",
+      inputSchema: DeleteEventInput.shape,
+    },
+    async (args) => {
+      try {
+        const parsed = DeleteEventInput.parse(args);
+        return ok(await deleteEvent(parsed));
+      } catch (err) {
+        return fail(err);
+      }
+    },
+  );
+
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  process.stderr.write("[apple-calendar-mcp] ready on stdio\n");
+}
+
+// Keep the zod import referenced in case downstream consumers subclass schemas
+void z;
+
+main().catch((err) => {
+  process.stderr.write(`[apple-calendar-mcp] fatal: ${String(err)}\n`);
+  process.exit(1);
+});
