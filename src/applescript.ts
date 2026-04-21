@@ -65,7 +65,9 @@ export function isoToAppleScriptDate(iso: string): string {
 }
 
 export function parseRecords(raw: string): string[][] {
-  if (!raw) return [];
+  if (!raw) {
+    return [];
+  }
   return raw
     .split(RECORD_SEPARATOR)
     .filter((r) => r.length > 0)

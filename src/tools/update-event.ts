@@ -110,8 +110,14 @@ export async function updateEvent(args: UpdateEventArgs): Promise<CalendarEvent>
     all_day: allDay === "true",
     calendar_name: calName ?? "",
   };
-  if (location) event.location = location;
-  if (notes) event.notes = notes;
-  if (url) event.url = url;
+  if (location) {
+    event.location = location;
+  }
+  if (notes) {
+    event.notes = notes;
+  }
+  if (url) {
+    event.url = url;
+  }
   return event;
 }

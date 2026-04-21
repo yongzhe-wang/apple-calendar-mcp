@@ -24,8 +24,6 @@ export const EventSchema = z.object({
 export type CalendarInfo = z.infer<typeof CalendarInfoSchema>;
 export type CalendarEvent = z.infer<typeof EventSchema>;
 
-export const ListCalendarsInput = z.object({});
-
 export const ListEventsInput = z.object({
   start_date: isoDate,
   end_date: isoDate,

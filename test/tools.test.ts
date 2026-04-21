@@ -74,7 +74,7 @@ describe("buildListEventsScript", () => {
     });
     expect(script).toContain('tell application "Calendar"');
     expect(script).toContain("every event of cal");
-    expect(script).toContain("set maxItems to 50");
+    expect(script).toContain("set evRecurrence to");
   });
 
   it("injects calendar_name safely", () => {
@@ -146,14 +146,14 @@ describe("parseEventsOutput", () => {
   it("parses a single event with all fields", () => {
     const RS = "\x1e";
     const US = "\x1f";
-    const secs = Math.floor(Date.UTC(2026, 3, 21, 10, 0, 0) / 1000);
-    const endSecs = secs + 3600;
+    const start = "2026-04-21T10:00:00";
+    const end = "2026-04-21T11:00:00";
     const raw =
       [
         "uid-1",
         "Meeting",
-        String(secs),
-        String(endSecs),
+        start,
+        end,
         "false",
         "Room 3",
         "Bring laptop",
@@ -165,14 +165,52 @@ describe("parseEventsOutput", () => {
     expect(events).toHaveLength(1);
     const e = events[0];
     expect(e).toBeDefined();
-    if (!e) return;
+    if (!e) {
+      return;
+    }
     expect(e.id).toBe("uid-1");
     expect(e.title).toBe("Meeting");
     expect(e.all_day).toBe(false);
     expect(e.location).toBe("Room 3");
     expect(e.url).toBe("https://example.com");
     expect(e.calendar_name).toBe("Work");
-    expect(new Date(e.start).getTime()).toBe(secs * 1000);
+    expect(e.start).toBe(new Date(start).toISOString());
+  });
+
+  it("expands weekly recurring events into the requested Apple Calendar day", () => {
+    const RS = "\x1e";
+    const US = "\x1f";
+    const record = [
+      "course-1",
+      "math2410 class",
+      "2026-01-15T10:15:00",
+      "2026-01-15T11:45:00",
+      "false",
+      "missing value",
+      "",
+      "Courses",
+      "",
+      "FREQ=WEEKLY;INTERVAL=1;BYDAY=TU,TH",
+    ].join(US);
+    const raw = record + RS + record + RS;
+
+    const events = parseEventsOutput(raw, {
+      start_date: "2026-04-21T00:00:00-04:00",
+      end_date: "2026-04-21T23:59:59-04:00",
+      limit: 100,
+    });
+
+    expect(events).toHaveLength(1);
+    const e = events[0];
+    expect(e).toBeDefined();
+    if (!e) {
+      return;
+    }
+    expect(e.title).toBe("math2410 class");
+    expect(e.calendar_name).toBe("Courses");
+    expect(e.location).toBeUndefined();
+    expect(e.start).toBe(new Date(2026, 3, 21, 10, 15).toISOString());
+    expect(e.end).toBe(new Date(2026, 3, 21, 11, 45).toISOString());
   });
 });
 

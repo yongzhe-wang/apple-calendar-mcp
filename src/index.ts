@@ -1,6 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { z } from "zod";
 import { formatUserFacingError } from "./errors.js";
 import { createEvent } from "./tools/create-event.js";
 import { deleteEvent } from "./tools/delete-event.js";
@@ -152,9 +151,6 @@ async function main(): Promise<void> {
   await server.connect(transport);
   process.stderr.write("[apple-calendar-mcp] ready on stdio\n");
 }
-
-// Keep the zod import referenced in case downstream consumers subclass schemas
-void z;
 
 main().catch((err) => {
   process.stderr.write(`[apple-calendar-mcp] fatal: ${String(err)}\n`);

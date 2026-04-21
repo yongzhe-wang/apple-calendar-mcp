@@ -64,8 +64,14 @@ export async function createEvent(args: CreateEventArgs): Promise<CalendarEvent>
     all_day: allDay === "true",
     calendar_name: calName ?? calendarName,
   };
-  if (location) event.location = location;
-  if (notes) event.notes = notes;
-  if (url) event.url = url;
+  if (location) {
+    event.location = location;
+  }
+  if (notes) {
+    event.notes = notes;
+  }
+  if (url) {
+    event.url = url;
+  }
   return event;
 }

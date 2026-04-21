@@ -1,0 +1,62 @@
+# actions/labeler@v5 configuration
+# https://github.com/actions/labeler
+
+"area:tools":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/tools/**"
+
+"area:applescript":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/applescript.ts"
+
+"area:schemas":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/types.ts"
+
+"area:server":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/index.ts"
+          - "src/errors.ts"
+
+"area:tests":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "test/**"
+
+"area:docs":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - "docs/**"
+
+"area:ci":
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/workflows/**"
+          - ".github/labeler.yml"
+          - ".github/dependabot.yml"
+
+"area:config":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "package.json"
+          - "tsconfig.json"
+          - "tsdown.config.ts"
+          - "vitest.config.ts"
+          - "knip.config.ts"
+          - ".oxlintrc.json"
+          - ".oxfmtrc.jsonc"
+          - ".markdownlint-cli2.jsonc"
+          - ".npmrc"
+          - ".pre-commit-config.yaml"
+
+"area:security":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "SECURITY.md"
+          - "INCIDENT_RESPONSE.md"
+          - ".github/workflows/codeql.yml"

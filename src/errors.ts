@@ -16,14 +16,18 @@ const PERMISSION_PATTERNS = [
   /execution error/i,
 ];
 
-export function isPermissionError(err: unknown): boolean {
+function isPermissionError(err: unknown): boolean {
   const msg = errorMessage(err);
   return PERMISSION_PATTERNS.some((p) => p.test(msg));
 }
 
-export function errorMessage(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  if (typeof err === "string") return err;
+function errorMessage(err: unknown): string {
+  if (err instanceof Error) {
+    return err.message;
+  }
+  if (typeof err === "string") {
+    return err;
+  }
   try {
     return JSON.stringify(err);
   } catch {
@@ -32,7 +36,9 @@ export function errorMessage(err: unknown): string {
 }
 
 export function formatUserFacingError(err: unknown): string {
-  if (err instanceof AppleCalendarError) return err.userFacing;
+  if (err instanceof AppleCalendarError) {
+    return err.userFacing;
+  }
   if (isPermissionError(err)) {
     return [
       "macOS Calendar permission denied or Calendar.app not accessible.",

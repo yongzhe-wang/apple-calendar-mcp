@@ -1,0 +1,66 @@
+name: Install Smoke
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  install-smoke:
+    name: Pack + install + smoke
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.14"
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Pack tarball
+        run: |
+          pnpm pack --pack-destination .
+          ls -la apple-calendar-mcp-*.tgz
+
+      - name: Install globally via pnpm
+        run: |
+          pnpm add -g ./apple-calendar-mcp-*.tgz
+
+      - name: Smoke — binary resolves
+        run: |
+          which apple-calendar-mcp
+          file "$(which apple-calendar-mcp)"
+
+      - name: Smoke — MCP server starts and exits on stdin close
+        # The MCP server reads stdin; closing it should terminate the server cleanly.
+        # We verify the server prints its ready banner on stderr within 5 seconds.
+        run: |
+          set -euo pipefail
+          output=$(: | timeout 5 apple-calendar-mcp 2>&1 || true)
+          echo "$output"
+          echo "$output" | grep -q '\[apple-calendar-mcp\] ready on stdio'

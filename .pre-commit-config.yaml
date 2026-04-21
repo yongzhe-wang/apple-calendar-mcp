@@ -1,0 +1,68 @@
+# Pre-commit hooks for apple-calendar-mcp
+# Install: pre-commit install
+# Run manually: pre-commit run --all-files
+#
+# See https://pre-commit.com for more information
+
+repos:
+  # Basic file hygiene
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '^(dist/|.*\.snap$)'
+      - id: end-of-file-fixer
+        exclude: '^(dist/|.*\.snap$)'
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: check-merge-conflict
+      - id: detect-private-key
+        exclude: '(^|/)(\.pre-commit-config\.yaml$|.*\.test\.ts$)'
+
+  # Secret detection
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args:
+          - --exclude-files
+          - '(^|/)pnpm-lock\.yaml$'
+
+  # GitHub Actions linting
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.10
+    hooks:
+      - id: actionlint
+
+  # Markdown linting
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.18.0
+    hooks:
+      - id: markdownlint-cli2
+        args: ["--config", ".markdownlint-cli2.jsonc"]
+
+  # Project checks (same commands as CI)
+  - repo: local
+    hooks:
+      - id: oxlint
+        name: oxlint
+        entry: pnpm exec oxlint
+        language: system
+        pass_filenames: false
+        types_or: [ts, tsx, javascript, jsx]
+
+      - id: oxfmt
+        name: oxfmt
+        entry: pnpm exec oxfmt --check
+        language: system
+        pass_filenames: false
+        types_or: [ts, tsx, javascript, jsx]
+
+      - id: typecheck
+        name: typecheck
+        entry: pnpm typecheck
+        language: system
+        pass_filenames: false
+        types_or: [ts, tsx]

@@ -1,0 +1,9 @@
+# Default owner for everything in the repo.
+* @yongzhe-wang
+
+# Security-sensitive surfaces
+/SECURITY.md @yongzhe-wang
+/INCIDENT_RESPONSE.md @yongzhe-wang
+/src/applescript.ts @yongzhe-wang
+/.github/dependabot.yml @yongzhe-wang
+/.github/workflows/codeql.yml @yongzhe-wang

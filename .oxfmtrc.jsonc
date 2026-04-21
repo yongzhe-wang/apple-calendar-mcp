@@ -1,0 +1,12 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "sortImports": {
+    "newlinesBetween": false,
+  },
+  "sortPackageJson": {
+    "sortScripts": true,
+  },
+  "tabWidth": 2,
+  "useTabs": false,
+  "ignorePatterns": ["CLAUDE.md", "dist/", "node_modules/", "pnpm-lock.yaml"],
+}

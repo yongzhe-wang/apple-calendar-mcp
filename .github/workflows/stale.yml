@@ -1,0 +1,43 @@
+name: Stale
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  stale:
+    permissions:
+      issues: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Mark stale issues and pull requests
+        uses: actions/stale@v9
+        with:
+          days-before-issue-stale: 30
+          days-before-issue-close: 14
+          days-before-pr-stale: 21
+          days-before-pr-close: 7
+          stale-issue-label: stale
+          stale-pr-label: stale
+          exempt-issue-labels: enhancement,pinned,security,no-stale
+          exempt-pr-labels: no-stale
+          operations-per-run: 300
+          ascending: true
+          remove-stale-when-updated: true
+          stale-issue-message: |
+            This issue has been automatically marked as stale due to inactivity.
+            Add an update or it will be closed.
+          stale-pr-message: |
+            This pull request has been automatically marked as stale due to inactivity.
+            Add an update or it will be closed.
+          close-issue-message: |
+            Closing due to inactivity. If this is still a problem on the latest release,
+            reopen with fresh reproduction details.
+          close-pr-message: |
+            Closing due to inactivity. If you want to revive this PR, rebase on latest main
+            and leave a comment.

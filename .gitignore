@@ -1,10 +1,27 @@
-node_modules
-dist
-coverage
+node_modules/
+**/node_modules/
+dist/
+coverage/
 .DS_Store
+**/.DS_Store
 .env
 .env.local
 *.log
 npm-debug.log*
-.vscode
-.idea
+.vscode/
+.idea/
+.tsbuildinfo
+.pnpm-store/
+
+# Agent credentials and scratch (NEVER COMMIT)
+.claude/
+.agent/
+/local/
+.tmp/
+.artifacts/
+
+# Lockfiles from other package managers (project uses pnpm)
+package-lock.json
+yarn.lock
+bun.lock
+bun.lockb

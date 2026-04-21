@@ -1,67 +1,78 @@
 {
   "name": "apple-calendar-mcp",
   "version": "0.1.0",
-  "description": "MCP server for macOS Calendar (EventKit via AppleScript) — list, search, create, update, delete events from Claude Code.",
+  "description": "MCP server for macOS Calendar.app — list, search, create, update, delete events from Claude Code and any MCP client.",
   "keywords": [
-    "mcp",
-    "model-context-protocol",
+    "applescript",
+    "calendar",
     "claude",
     "claude-code",
-    "calendar",
-    "macos",
     "eventkit",
-    "applescript"
+    "macos",
+    "mcp",
+    "model-context-protocol"
   ],
+  "homepage": "https://github.com/yongzhe-wang/apple-calendar-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/yongzhe-wang/apple-calendar-mcp/issues"
+  },
   "license": "MIT",
   "author": "Yongzhe Wang",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yongzhe-wang/apple-calendar-mcp"
+    "url": "git+https://github.com/yongzhe-wang/apple-calendar-mcp.git"
   },
-  "bugs": {
-    "url": "https://github.com/yongzhe-wang/apple-calendar-mcp/issues"
-  },
-  "homepage": "https://github.com/yongzhe-wang/apple-calendar-mcp#readme",
-  "type": "module",
   "bin": {
-    "apple-calendar-mcp": "./dist/index.js"
+    "apple-calendar-mcp": "dist/index.js"
   },
-  "main": "./dist/index.js",
   "files": [
-    "dist",
+    "CHANGELOG.md",
+    "LICENSE",
     "README.md",
-    "LICENSE"
+    "dist/"
   ],
-  "engines": {
-    "node": ">=20"
-  },
   "os": [
     "darwin"
   ],
+  "type": "module",
+  "main": "dist/index.js",
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "tsdown",
+    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm knip",
+    "dev": "tsdown --watch",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "knip": "knip",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "prepublishOnly": "pnpm check && pnpm test && pnpm build",
     "start": "node dist/index.js",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit",
-    "lint": "biome check src test",
-    "lint:fix": "biome check --write src test",
-    "format": "biome format --write src test",
-    "prepublishOnly": "npm run typecheck && npm run test && npm run build"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.12",
     "@types/node": "^22.10.0",
-    "tsup": "^8.5.1",
+    "@vitest/coverage-v8": "^4.1.5",
+    "knip": "^5.33.0",
+    "markdownlint-cli2": "^0.18.0",
+    "oxfmt": "^0.45.0",
+    "oxlint": "^1.60.0",
+    "tsdown": "^0.21.9",
+    "tsx": "^4.21.0",
     "typescript": "^5.7.0",
     "vitest": "^4.1.5"
-  }
+  },
+  "engines": {
+    "node": ">=22.14.0"
+  },
+  "packageManager": "pnpm@10.33.0"
 }
