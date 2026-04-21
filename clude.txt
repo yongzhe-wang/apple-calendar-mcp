@@ -1,0 +1,47 @@
+# Calendar Rules
+
+These rules apply whenever Claude (or any AI assistant) manages calendar events in this user's Apple Calendar / iOS Calendar via apple-calendar-mcp.
+
+Last updated: 2026-04-21
+
+## Tool usage
+
+- Always use the apple-calendar-mcp server, not direct osascript or Calendar.app UI manipulation.
+- The MCP is the source of truth for event data. If an MCP call succeeds, trust it; if it fails, fix the MCP — do not work around by driving the UI.
+- When moving events between calendars AND renaming in the same operation, prefer two separate update_event calls (rename first, then move) until the combined move+rename path is proven stable.
+- If update_event destroys an event (UID disappears), recreate via create_event in the intended calendar rather than chasing the lost reference.
+
+## Calendar routing
+
+- Class lectures, recitations, and assignment reminders go in the "Courses" calendar.
+- Final exams go in the "Courses" calendar (same bucket as assignments — keep all course work together).
+- Personal 1:1s, interviews, and meetings go in "Appointments" or "Interview Meeting" (not "Courses").
+- Do not use "Appointments" for coursework.
+
+## Event titles
+
+- Every course-related event title must start with the course number prefix, followed by " - ", then the event name.
+  - Example: "CIS/BE 5210 - Pass Checkpoint 2!!"
+  - Example: "CIS 3200 - Final Exam"
+  - Example: "MATH 2410 - Final Exam"
+- Use the cross-listed course code when a course is dual-listed (e.g., BE 5210 / CIS 5210 → "CIS/BE 5210").
+- Keep the original assignment name after the prefix verbatim (including punctuation like "!!").
+
+## Event timing
+
+- Canvas assignments are scheduled as calendar events at 8:00 AM on the due date, regardless of the actual due time (e.g., a 10:00 PM due time still shows at 8:00 AM on the calendar).
+- Every event is at minimum 1 hour long. No 15-minute or 30-minute blocks.
+- Class sections and exams use their actual scheduled start and end times.
+- Timezone: America/New_York (EDT/EST) unless the user says otherwise.
+
+## Metadata
+
+- Include a description/notes field explaining: event type (e.g., "Canvas assignment, due 10:00 PM"), and any scheduling rule applied (e.g., "Event scheduled at 8:00 AM per user preference").
+- Include location if known (e.g., "CHEM 102", "TOWN 100", "Zoom", "WeChat").
+- Final exams: include instructor name in notes.
+
+## Operational notes
+
+- If an update_event call fails with -10025 "Object not found. It may have been deleted." after a move-between-calendars operation, search Calendar.app by title fragment to locate the event — the event may have landed in the target calendar with a new UID.
+- Before bulk-creating events, list_calendars first to confirm the target calendar name exists (case-sensitive, spaces matter — e.g., "Entertainment " has a trailing space).
+- After creating or moving events, verify via list_events on the exact time window to confirm the event is visible.

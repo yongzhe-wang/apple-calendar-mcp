@@ -46,22 +46,30 @@ describe("escapeAppleScriptString", () => {
 });
 
 describe("isoToAppleScriptDate", () => {
-  it("produces an AppleScript expression using epoch seconds", () => {
-    const out = isoToAppleScriptDate("1970-01-01T00:00:01Z");
-    expect(out).toContain("+ 1)");
-    expect(out).toContain("(current date)");
+  it("produces an AppleScript expression using local date components", () => {
+    const iso = "1970-01-01T00:00:01Z";
+    const local = new Date(iso);
+    const out = isoToAppleScriptDate(iso);
+    expect(out).toContain("set d to current date");
+    expect(out).toContain(`set year of d to ${local.getFullYear()}`);
+    expect(out).toContain(`set day of d to ${local.getDate()}`);
+    expect(out).toContain(
+      `set time of d to ${local.getHours() * 3600 + local.getMinutes() * 60 + local.getSeconds()}`,
+    );
   });
 
-  it("converts a UTC timestamp to the correct seconds", () => {
+  it("converts a UTC timestamp to local date parts", () => {
     const out = isoToAppleScriptDate("2026-01-01T00:00:00Z");
-    const expected = Math.floor(Date.UTC(2026, 0, 1) / 1000);
-    expect(out).toContain(`+ ${expected})`);
+    expect(out).toContain("set year of d to 2025");
+    expect(out).toContain("set month of d to December");
   });
 
-  it("handles ISO dates with timezone offsets", () => {
+  it("keeps local wall-clock time for ISO dates with timezone offsets", () => {
     const out = isoToAppleScriptDate("2026-04-21T10:30:00-07:00");
-    const expected = Math.floor(Date.parse("2026-04-21T10:30:00-07:00") / 1000);
-    expect(out).toContain(`+ ${expected})`);
+    expect(out).toContain("set year of d to 2026");
+    expect(out).toContain("set month of d to April");
+    expect(out).toContain("set day of d to 21");
+    expect(out).toContain("set time of d to 48600");
   });
 
   it("throws on invalid ISO strings", () => {

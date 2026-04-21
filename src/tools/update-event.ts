@@ -7,6 +7,25 @@ import {
 } from "../applescript.js";
 import type { CalendarEvent, UpdateEventArgs } from "../types.js";
 
+export function normalizeUpdateEventDuration(args: UpdateEventArgs): UpdateEventArgs {
+  if (!args.start_date || !args.end_date) {
+    return args;
+  }
+  const startMs = Date.parse(args.start_date);
+  const endMs = Date.parse(args.end_date);
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+    return args;
+  }
+  if (endMs - startMs >= 60 * 60 * 1000) {
+    return args;
+  }
+  // Only normalize when both bounds are present; partial updates should preserve the existing event span.
+  return {
+    ...args,
+    end_date: new Date(startMs + 60 * 60 * 1000).toISOString(),
+  };
+}
+
 export function buildUpdateEventScript(args: UpdateEventArgs): string {
   const evId = escapeAppleScriptString(args.event_id);
   const setters: string[] = [];
@@ -34,10 +53,14 @@ export function buildUpdateEventScript(args: UpdateEventArgs): string {
 
   const moveClause = args.calendar_name
     ? `
-    tell application "Calendar"
-      set targetCal to first calendar whose name is ${escapeAppleScriptString(args.calendar_name)}
-      move ev to targetCal
-    end tell`
+  set targetCalName to ${escapeAppleScriptString(args.calendar_name)}
+  if (name of hostCal as string) is not equal to targetCalName then
+    set targetCal to first calendar whose name is targetCalName
+    -- Rebind the event immediately after the move so later reads never keep a stale reference.
+    move ev to targetCal
+    set hostCal to targetCal
+    set ev to first event of hostCal whose uid is ${evId}
+  end if`
     : "";
 
   return `
@@ -61,8 +84,8 @@ tell application "Calendar"
   end if
   set ev to foundEv
   ${setters.join("\n  ")}
+  ${moveClause}
 end tell
-${moveClause}
 tell application "Calendar"
   repeat with cal in calendars
     try
@@ -71,8 +94,8 @@ tell application "Calendar"
       exit repeat
     end try
   end repeat
-  set evStart to ((start date of ev) - (date "Thursday, January 1, 1970 at 12:00:00 AM")) as integer
-  set evEnd to ((end date of ev) - (date "Thursday, January 1, 1970 at 12:00:00 AM")) as integer
+  set evStart to my localDateStamp(start date of ev)
+  set evEnd to my localDateStamp(end date of ev)
   set evAllDay to (allday event of ev)
   set allDayFlag to "false"
   if evAllDay then set allDayFlag to "true"
@@ -93,20 +116,31 @@ tell application "Calendar"
   end try
   return (uid of ev as string) & us & (summary of ev as string) & us & (evStart as string) & us & (evEnd as string) & us & allDayFlag & us & (evLoc as string) & us & (evNotes as string) & us & (name of hostCal as string) & us & (evUrl as string)
 end tell
+
+on localDateStamp(d)
+  return (year of d as string) & "-" & my pad2(month of d as integer) & "-" & my pad2(day of d as integer) & "T" & my pad2(hours of d as integer) & ":" & my pad2(minutes of d as integer) & ":" & my pad2(seconds of d as integer)
+end localDateStamp
+
+on pad2(n)
+  if n is less than 10 then
+    return "0" & (n as string)
+  end if
+  return n as string
+end pad2
 `;
 }
 
 export async function updateEvent(args: UpdateEventArgs): Promise<CalendarEvent> {
-  const script = buildUpdateEventScript(args);
+  const script = buildUpdateEventScript(normalizeUpdateEventDuration(args));
   const raw = await runAppleScript(script);
   const [id, title, start, end, allDay, location, notes, calName, url] = raw.split(UNIT_SEPARATOR);
-  const startMs = Number(start) * 1000;
-  const endMs = Number(end) * 1000;
+  const startDate = parseLocalDateTime(start);
+  const endDate = parseLocalDateTime(end);
   const event: CalendarEvent = {
     id: id ?? "",
     title: title ?? "",
-    start: new Date(startMs).toISOString(),
-    end: new Date(endMs).toISOString(),
+    start: startDate.toISOString(),
+    end: endDate.toISOString(),
     all_day: allDay === "true",
     calendar_name: calName ?? "",
   };
@@ -120,4 +154,11 @@ export async function updateEvent(args: UpdateEventArgs): Promise<CalendarEvent>
     event.url = url;
   }
   return event;
+}
+
+function parseLocalDateTime(value: string | undefined): Date {
+  if (!value) {
+    return new Date(Number.NaN);
+  }
+  return new Date(value);
 }

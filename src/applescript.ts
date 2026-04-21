@@ -49,9 +49,25 @@ export function escapeAppleScriptString(s: string): string {
   return `"${escaped}"`;
 }
 
-// AppleScript's `date "..."` literal is locale-sensitive (en_US vs de_DE etc.),
-// so we build a date from epoch seconds instead. This expression yields a
-// proper AppleScript date object usable in `set start date of foo to ...`.
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+] as const;
+
+// Calendar.app writes dates in the local macOS calendar timezone, so we build
+// explicit local date components instead of passing epoch seconds. That keeps
+// "8:00 PM local" pinned to 8:00 PM in Calendar.app rather than drifting by
+// the UTC offset when the MCP writes through AppleScript.
 export function isoToAppleScriptDate(iso: string): string {
   const ts = Date.parse(iso);
   if (Number.isNaN(ts)) {
@@ -60,8 +76,18 @@ export function isoToAppleScriptDate(iso: string): string {
       `Invalid date "${iso}". Expected ISO 8601 (e.g. 2026-04-21T14:30:00Z).`,
     );
   }
-  const seconds = Math.floor(ts / 1000);
-  return `((current date) - ((current date) - (date "Thursday, January 1, 1970 at 12:00:00 AM")) + ${seconds})`;
+  const date = new Date(ts);
+  const year = date.getFullYear();
+  const month = MONTH_NAMES[date.getMonth()];
+  const day = date.getDate();
+  const timeSeconds = date.getHours() * 3600 + date.getMinutes() * 60 + date.getSeconds();
+  const body = `set d to current date
+set year of d to ${year}
+set month of d to ${month}
+set day of d to ${day}
+set time of d to ${timeSeconds}
+return d`;
+  return `(run script ${escapeAppleScriptString(body)})`;
 }
 
 export function parseRecords(raw: string): string[][] {

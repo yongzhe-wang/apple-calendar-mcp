@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildCreateEventScript } from "../src/tools/create-event.js";
+import { buildCreateEventScript, normalizeCreateEventDuration } from "../src/tools/create-event.js";
 import { buildDeleteEventScript } from "../src/tools/delete-event.js";
 import { buildListEventsScript, parseEventsOutput } from "../src/tools/list-events.js";
 import { matchesQuery } from "../src/tools/search-events.js";
-import { buildUpdateEventScript } from "../src/tools/update-event.js";
+import { buildUpdateEventScript, normalizeUpdateEventDuration } from "../src/tools/update-event.js";
 import {
   CreateEventInput,
   DeleteEventInput,
@@ -73,7 +73,8 @@ describe("buildListEventsScript", () => {
       limit: 50,
     });
     expect(script).toContain('tell application "Calendar"');
-    expect(script).toContain("every event of cal");
+    expect(script).toContain("set directEvents to");
+    expect(script).toContain("set recurringCandidates to");
     expect(script).toContain("set evRecurrence to");
   });
 
@@ -111,6 +112,34 @@ describe("buildCreateEventScript", () => {
   });
 });
 
+describe("duration normalization", () => {
+  it("extends short create_event requests to one hour", () => {
+    const normalized = normalizeCreateEventDuration({
+      title: "Short meeting",
+      start_date: "2026-04-21T10:00:00Z",
+      end_date: "2026-04-21T10:30:00Z",
+    });
+    expect(normalized.end_date).toBe("2026-04-21T11:00:00.000Z");
+  });
+
+  it("extends short update_event requests when both bounds are provided", () => {
+    const normalized = normalizeUpdateEventDuration({
+      event_id: "abc-123",
+      start_date: "2026-04-21T10:00:00Z",
+      end_date: "2026-04-21T10:30:00Z",
+    });
+    expect(normalized.end_date).toBe("2026-04-21T11:00:00.000Z");
+  });
+
+  it("does not alter partial update_event requests", () => {
+    const normalized = normalizeUpdateEventDuration({
+      event_id: "abc-123",
+      end_date: "2026-04-21T10:30:00Z",
+    });
+    expect(normalized.end_date).toBe("2026-04-21T10:30:00Z");
+  });
+});
+
 describe("buildUpdateEventScript", () => {
   it("only includes setters for provided fields", () => {
     const script = buildUpdateEventScript({
@@ -128,6 +157,16 @@ describe("buildUpdateEventScript", () => {
       title: "ok",
     });
     expect(script).toContain('\\"');
+  });
+
+  it("rebinds moved events after calendar changes", () => {
+    const script = buildUpdateEventScript({
+      event_id: "abc-123",
+      calendar_name: "Appointments",
+    });
+    expect(script).toContain("set targetCalName to");
+    expect(script).toContain("move ev to targetCal");
+    expect(script).toContain("set ev to first event of hostCal whose uid is");
   });
 });
 

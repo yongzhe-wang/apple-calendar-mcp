@@ -41,10 +41,45 @@ set out to ""
 tell application "Calendar"
   repeat with cal in calendars
     ${calendarFilter}
+      -- Keep one-off events on the exact requested window so short MCP calls stay fast.
+      set directEvents to (every event of cal whose start date is less than or equal to endDate and end date is greater than or equal to startDate)
+      repeat with ev in directEvents
+        set evRecurrence to ""
+        try
+          set evRecurrence to (recurrence of ev as string)
+        on error
+          set evRecurrence to ""
+        end try
+        set evId to (uid of ev)
+        set evTitle to (summary of ev)
+        try
+          set evLoc to (location of ev)
+        on error
+          set evLoc to ""
+        end try
+        try
+          set evNotes to (description of ev)
+        on error
+          set evNotes to ""
+        end try
+        try
+          set evUrl to (url of ev)
+        on error
+          set evUrl to ""
+        end try
+        set evAllDay to (allday event of ev)
+        set allDayFlag to "false"
+        if evAllDay then set allDayFlag to "true"
+        set evStart to my localDateStamp(start date of ev)
+        set evEnd to my localDateStamp(end date of ev)
+        set calName to (name of cal as string)
+        set out to out & (evId as string) & us & (evTitle as string) & us & (evStart as string) & us & (evEnd as string) & us & allDayFlag & us & (evLoc as string) & us & (evNotes as string) & us & calName & us & (evUrl as string) & us & evRecurrence & rs
+      end repeat
+
       -- Recurring events expose the series start date, not the visible occurrence,
-      -- so we collect a bounded lookback window and expand/filter in TypeScript.
-      set matchingEvents to (every event of cal whose start date is less than or equal to endDate and end date is greater than or equal to candidateStartDate)
-      repeat with ev in matchingEvents
+      -- so only recurring candidates get the wider lookback window.
+      set recurringCandidates to (every event of cal whose recurrence is not equal to "" and start date is less than or equal to endDate and end date is greater than or equal to candidateStartDate)
+      repeat with ev in recurringCandidates
         set evRecurrence to ""
         try
           set evRecurrence to (recurrence of ev as string)
