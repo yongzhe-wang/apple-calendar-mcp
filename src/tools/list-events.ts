@@ -329,6 +329,20 @@ export async function listEvents(args: ListEventsArgs): Promise<CalendarEvent[]>
     const settled = await Promise.allSettled(
       calendars.map((calendar) => listEvents({ ...args, calendar_name: calendar.name })),
     );
+    // Surface per-calendar failures on stderr so silent empty results (e.g. a
+    // single slow calendar timing out) are visible to operators. Without this
+    // log, a single timeout on a large calendar blanks out search_events with
+    // no user-visible signal — the bug observed on 2026-04-22.
+    settled.forEach((result, i) => {
+      if (result.status === "rejected") {
+        const name = calendars[i]?.name ?? "<unknown>";
+        const detail =
+          result.reason instanceof Error ? result.reason.message : String(result.reason);
+        process.stderr.write(
+          `[apple-calendar-mcp] list_events: calendar "${name}" failed: ${detail.slice(0, 500)}\n`,
+        );
+      }
+    });
     const events = settled.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
     return sortAndLimitEvents(dedupeEvents(events), args.limit);
   }

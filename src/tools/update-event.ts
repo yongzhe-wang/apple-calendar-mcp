@@ -39,12 +39,35 @@ export function buildUpdateEventScript(args: UpdateEventArgs): string {
   if (args.title !== undefined) {
     setters.push(`set summary of ev to ${escapeAppleScriptString(args.title)}`);
   }
-  if (args.start_date !== undefined) {
+
+  // Date-move invariant: Calendar.app enforces `start <= end` on every setter. A naive
+  // "set start, set end" sequence rejects forward-time moves (new start > current end)
+  // with `-10025 The start date must be before the end date.` A naive "set end, set start"
+  // rejects backward-time moves (new end < current start). To work on every move direction,
+  // we first PARK the end date 1 hour after the new start (always > newStart, so the
+  // invariant holds), set start, then set end to its real value. This keeps both setters
+  // legal no matter how far forward or backward the caller moves the event.
+  //
+  // We only apply the parking trick when BOTH start and end are being updated. When only
+  // one is present we defer to the caller: if their partial update breaks the invariant,
+  // Calendar.app's own error message surfaces and mergeFields already rejects inverted
+  // bounds for cross-calendar moves.
+  if (args.start_date !== undefined && args.end_date !== undefined) {
+    const startExpr = isoToAppleScriptDate(args.start_date);
+    const endExpr = isoToAppleScriptDate(args.end_date);
+    setters.push(`set newStart to ${startExpr}`);
+    setters.push(`set newEnd to ${endExpr}`);
+    // Park end at (newStart + 3600s) first — always > newStart, so `set start date` is legal.
+    // Then set start to its real value, then end to its real value.
+    setters.push(`set end date of ev to (newStart + 3600)`);
+    setters.push(`set start date of ev to newStart`);
+    setters.push(`set end date of ev to newEnd`);
+  } else if (args.start_date !== undefined) {
     setters.push(`set start date of ev to ${isoToAppleScriptDate(args.start_date)}`);
-  }
-  if (args.end_date !== undefined) {
+  } else if (args.end_date !== undefined) {
     setters.push(`set end date of ev to ${isoToAppleScriptDate(args.end_date)}`);
   }
+
   if (args.location !== undefined) {
     setters.push(`set location of ev to ${escapeAppleScriptString(args.location)}`);
   }

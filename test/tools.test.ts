@@ -179,6 +179,55 @@ describe("buildUpdateEventScript", () => {
     expect(script).not.toContain("move ev to targetCal");
     expect(script).not.toContain("set targetCalName to");
   });
+
+  it("parks the end date safely when both start and end are updated", () => {
+    // Forward-time moves (new start > current end) previously blew up with
+    // -10025 because `set start date` ran before `set end date`, momentarily
+    // violating Calendar.app's start-before-end invariant. The parking trick
+    // sets end to (newStart + 1h) first, so every subsequent setter is legal.
+    const script = buildUpdateEventScript({
+      event_id: "abc-123",
+      start_date: "2026-04-22T19:00:00-04:00",
+      end_date: "2026-04-22T20:00:00-04:00",
+    });
+    // The parked end must appear BEFORE the real start/end setters to keep
+    // start <= end through every setter.
+    expect(script).toContain("set newStart to");
+    expect(script).toContain("set newEnd to");
+    expect(script).toContain("set end date of ev to (newStart + 3600)");
+    expect(script).toContain("set start date of ev to newStart");
+    expect(script).toContain("set end date of ev to newEnd");
+
+    const parkIdx = script.indexOf("set end date of ev to (newStart + 3600)");
+    const startIdx = script.indexOf("set start date of ev to newStart");
+    const realEndIdx = script.indexOf("set end date of ev to newEnd");
+    // Ordering: park end → set start → set real end.
+    expect(parkIdx).toBeGreaterThan(-1);
+    expect(startIdx).toBeGreaterThan(parkIdx);
+    expect(realEndIdx).toBeGreaterThan(startIdx);
+  });
+
+  it("preserves the single-setter path when only start_date is provided", () => {
+    // Partial updates shouldn't use the parking trick — Calendar.app's own
+    // invariant check surfaces to the caller if the single setter breaks it.
+    const script = buildUpdateEventScript({
+      event_id: "abc-123",
+      start_date: "2026-04-22T19:00:00-04:00",
+    });
+    expect(script).toContain("set start date of ev to ");
+    expect(script).not.toContain("set newStart to");
+    expect(script).not.toContain("(newStart + 3600)");
+  });
+
+  it("preserves the single-setter path when only end_date is provided", () => {
+    const script = buildUpdateEventScript({
+      event_id: "abc-123",
+      end_date: "2026-04-22T20:00:00-04:00",
+    });
+    expect(script).toContain("set end date of ev to ");
+    expect(script).not.toContain("set newEnd to");
+    expect(script).not.toContain("(newStart + 3600)");
+  });
 });
 
 describe("buildReadEventScript", () => {
@@ -445,6 +494,29 @@ describe("matchesQuery", () => {
 
   it("returns false when no field matches", () => {
     expect(matchesQuery(base, "missing")).toBe(false);
+  });
+
+  it("matches CJK substrings inside mixed-script titles", () => {
+    // The 2026-04-22 regression surfaced "search_events returned empty for
+    // '极佳' against an event titled 'Interview Meeting - 极佳科技 (WeChat)'".
+    // The substring logic itself works; the real cause was listEvents silently
+    // timing out. This guards that matchesQuery continues to handle CJK even
+    // if a future refactor swaps the comparison implementation.
+    const event = {
+      ...base,
+      title: "Interview Meeting - 极佳科技 (WeChat)",
+    };
+    expect(matchesQuery(event, "极佳")).toBe(true);
+    expect(matchesQuery(event, "极佳科技")).toBe(true);
+    expect(matchesQuery(event, "WeChat")).toBe(true);
+    expect(matchesQuery(event, "wechat")).toBe(true);
+  });
+
+  it("matches ASCII case-insensitively against mixed-case titles", () => {
+    const event = { ...base, title: "Jike Technology sync" };
+    expect(matchesQuery(event, "Jike")).toBe(true);
+    expect(matchesQuery(event, "JIKE")).toBe(true);
+    expect(matchesQuery(event, "jike")).toBe(true);
   });
 });
 

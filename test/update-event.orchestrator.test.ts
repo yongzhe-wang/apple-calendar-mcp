@@ -118,6 +118,40 @@ describe("updateEvent — orchestrator paths (mocked runAppleScript)", () => {
     expect(result.id).toBe("src-uid-1");
   });
 
+  it("uses the parking-end-date sequence for forward-time in-place moves", async () => {
+    // 2026-04-22 regression: moving an Apr 21 19:00-20:00 event to Apr 22 19:00-20:00
+    // blew up with Calendar.app -10025 ("start date must be before end date") because
+    // the old setter order set start first, briefly violating the invariant. The fix
+    // parks end at (newStart + 1h) before touching start, then sets the real end.
+    runAppleScriptMock.mockResolvedValueOnce(
+      copyFixture({
+        id: "src-uid-1",
+        title: "Amazon refund",
+        start: "2026-04-22T19:00:00",
+        end: "2026-04-22T20:00:00",
+        calendar_name: "life",
+      }),
+    );
+
+    await updateEvent({
+      event_id: "src-uid-1",
+      start_date: "2026-04-22T19:00:00-04:00",
+      end_date: "2026-04-22T20:00:00-04:00",
+    });
+
+    const script = runAppleScriptMock.mock.calls[0]?.[0] ?? "";
+    expect(script).toContain("set newStart to");
+    expect(script).toContain("set newEnd to");
+    expect(script).toContain("set end date of ev to (newStart + 3600)");
+    expect(script).toContain("set start date of ev to newStart");
+    // Real end setter must come AFTER the parking setter; otherwise Calendar.app
+    // momentarily sees end < start during forward moves.
+    const parkIdx = script.indexOf("set end date of ev to (newStart + 3600)");
+    const realEndIdx = script.indexOf("set end date of ev to newEnd");
+    expect(parkIdx).toBeGreaterThan(-1);
+    expect(realEndIdx).toBeGreaterThan(parkIdx);
+  });
+
   it("takes in-place path when canonical calendar name matches source (trimmed, case-insensitive)", async () => {
     // Call 1: listCalendars.
     runAppleScriptMock.mockResolvedValueOnce(calendarsFixture([{ name: "Work", writable: true }]));

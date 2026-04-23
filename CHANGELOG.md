@@ -20,6 +20,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Competitive landscape section in README comparing apple-calendar-mcp to supermemoryai/apple-mcp, Omar-V2/mcp-ical, joshrutkowski/applescript-mcp, steipete/macos-automator-mcp, and PsychQuant/che-ical-mcp.
 
+## [0.1.3] - 2026-04-22
+
+### Fixed
+
+- `update_event`: forward-time in-place moves no longer fail with Calendar.app `-10025 "The start date must be before the end date."` when the new start is after the current end. The in-place AppleScript now parks `end date` at `(newStart + 1h)` before touching `start date`, then sets the real end — keeping `start <= end` legal through every setter regardless of move direction. Observed 2026-04-22 moving an Apr 21 19:00-20:00 event to Apr 22 19:00-20:00.
+- `search_events` (and any other fan-out caller of `list_events`) no longer silently returns `[]` when one or more per-calendar queries time out. The `osascript` deadline is raised from 30 s to 120 s to accommodate Calendar.app's slow AppleScript bridge on writable calendars with 60+ events, and `list_events` now logs every `Promise.allSettled` rejection to `stderr` instead of swallowing it. Observed 2026-04-22 searching for `极佳` against an existing Apr 28 event — the substring matcher was correct, but the underlying fan-out had already been silently aborted.
+
 ## [0.1.2] - 2026-04-21
 
 ### Fixed
@@ -61,5 +68,7 @@ Initial public release.
 - Friendly error messages when macOS Calendar Automation permission is denied.
 - MIT license, `os: ["darwin"]` gate, Node `>=22.14.0` engines.
 
-[Unreleased]: https://github.com/yongzhe-wang/apple-calendar-mcp/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/yongzhe-wang/apple-calendar-mcp/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/yongzhe-wang/apple-calendar-mcp/compare/v0.1.2...v0.1.3
+[0.1.2]: https://github.com/yongzhe-wang/apple-calendar-mcp/compare/v0.1.0...v0.1.2
 [0.1.0]: https://github.com/yongzhe-wang/apple-calendar-mcp/releases/tag/v0.1.0

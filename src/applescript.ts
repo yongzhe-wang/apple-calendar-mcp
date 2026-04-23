@@ -11,7 +11,17 @@ const execFileAsync = promisify(execFile);
 export const RECORD_SEPARATOR = "\x1e";
 export const UNIT_SEPARATOR = "\x1f";
 
-const OSASCRIPT_TIMEOUT_MS = 30_000;
+// Bumped from 30s to 120s on 2026-04-22 after search_events silently returned []
+// for accounts with large writable calendars. A single per-calendar list_events query
+// walks every property (uid, summary, start, end, allday, location, notes, url,
+// recurrence, plus 12 date-component reads per event for localDateStamp) through the
+// Calendar.app AppleScript bridge. On calendars with 100+ events that lookup routinely
+// takes 60-90s. The old 30s deadline killed every such call; Promise.allSettled in
+// listEvents then swallowed the rejections and returned []. 120s gives Calendar.app
+// enough headroom on real user data without letting a pathological loop hang the
+// MCP forever. Users with truly pathological calendars may still hit this; the
+// fan-out logging in list_events now makes the failure visible instead of silent.
+const OSASCRIPT_TIMEOUT_MS = 120_000;
 const OSASCRIPT_MAX_BUFFER = 16 * 1024 * 1024;
 
 export async function runAppleScript(script: string): Promise<string> {
